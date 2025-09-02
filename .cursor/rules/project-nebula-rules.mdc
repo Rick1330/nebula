@@ -1,0 +1,105 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+Project Rules — Nebula (Discord‑class real‑time collab/chat app)
+
+Scope & stack
+- App: Next.js 14 (App Router) + React + TypeScript
+- UI: Tailwind CSS + Radix UI + shadcn/ui; Framer Motion
+- State: TanStack Query (server state) + Zustand (UI/ephemeral)
+- Backend: Next Route Handlers (REST, OpenAPI), WebSockets (Socket.IO or ws)
+- Data: PostgreSQL + Prisma; Redis (pub/sub, presence, rate limits); S3-compatible storage (S3/R2/MinIO)
+- Jobs: BullMQ for indexing, notifications, emails, exports
+- Media: LiveKit preferred; else pluggable WebRTC with STUN/TURN (Coturn)
+- Observability: OpenTelemetry + Sentry + Prometheus/Grafana
+- Infra: Docker/Docker Compose; Cloudflare CDN/WAF (docs), Vercel (web) + Fly/Render (backend) or single Docker stack
+
+Architecture & boundaries
+- App Router only. APIs live in app/api/**. Business logic in @/server/**.
+- TS strict: "strict": true, noImplicitAny, noUncheckedIndexedAccess.
+- Validate all inputs/outputs at boundaries with Zod; typed REST + OpenAPI spec, generate TS SDK.
+- WebSocket events are versioned and Zod‑typed; forward/backward compatible.
+- Path aliases: @/app, @/components, @/lib, @/server, @/styles, @/types.
+
+Multi‑tenancy & data model
+- Enforce workspace_id on all tenant tables. Postgres RLS + server‑side permission checks on every action.
+- Message ordering: ULIDs for IDs + per‑channel monotonic sequence (server authoritative time).
+- Idempotency: Accept X‑Idempotency‑Key on mutating endpoints; outbox pattern + transactional enqueue; dedupe by (tenant, key).
+- Indexes for pagination/search: (createdAt, channelId, userId). Cursor-based pagination everywhere.
+
+Security & privacy
+- Helmet/CSP, strict CORS, CSRF where applicable. Sanitize markdown; block dangerous links.
+- Auth: OAuth + email/pass; WebAuthn + TOTP optional; device/session management; rotate sessions on privilege changes.
+- Rate limiting per IP and user; abuse throttles on chat endpoints.
+- Uploads: validate MIME, strip EXIF, virus-scan hook (ClamAV), signed URLs; never trust client filenames.
+- Optional E2EE for DMs only (document limitations); at‑rest encryption; TLS 1.3 in prod.
+- Avoid PII in logs; use request IDs/correlation IDs. Secrets only via env.
+
+Performance & scalability
+- Budgets: initial JS ≤ 250KB gz on first route; CLS ≤ 0.02; virtualize long lists.
+- SLIs: p95 publish→receive < 150ms (same region), reconnect < 3s p95, p99 WS disconnects < 0.5%/hr/user.
+- Backpressure: drop non‑critical events (typing) on queue growth; shed with 429 + Retry‑After when needed.
+- Cache: Redis for hot data; Cloudflare CDN for static assets/thumbnails.
+
+Frontend rules
+- Prefer Server Components; Client Components only for interactive parts.
+- Accessibility: semantic HTML, ARIA labels, focus management, prefers-reduced-motion. High‑contrast token variants.
+- Use Suspense/streaming where beneficial; reserve media dimensions to avoid layout shift.
+
+Realtime media
+- LiveKit first-choice with ephemeral tokens; fallback MediaService using STUN/TURN (Coturn).
+- Provide mic/cam checks and CPU/network preflight; cap bitrate per channel.
+
+Search
+- Background indexer (BullMQ); incremental updates on writes; read replicas for heavier queries.
+- Features: phrase search, filters, highlighting, synonyms/typo tolerance; tenant‑scoped ranking.
+
+Testing
+- Unit (Vitest/Jest) for services/utils; Integration tests for API with DB (docker compose in CI); Playwright e2e for auth, messaging, uploads, permissions, voice join.
+- Accessibility checks (axe/Pa11y) on key flows. Critical path coverage ≥ 80%.
+- Add/adjust tests when fixing or changing behavior.
+
+Observability & ops
+- Structured logs (pino) with request IDs. OpenTelemetry traces for critical paths; Sentry for errors.
+- Prometheus metrics: WS connections, message latency histograms, per‑event error rates, TURN allocation failures, DB/Redis saturation.
+- Health endpoints + graceful shutdown (drain jobs, close sockets); readiness/liveness probes.
+- Load tests (k6) for 10k concurrent sockets (staging). Document results.
+
+Design system & theming
+- Tokens: HSL colors; spacing 4/8pt; radii 8/12/16; shadows; motion; type scale.
+- Dark‑first with accessible light mode. Provide theme builder (HSL) with per‑user persistence.
+- Storybook stories with a11y checks and controls for new components.
+
+Mobile & PWA
+- Mobile‑first layouts; 44x44 touch targets; bottom sheets; swipe gestures for nav.
+- PWA: offline cache last 200 messages/channel; queue unsent; exponential backoff; graceful reconnection.
+
+Git & GitHub workflow (repo specifics)
+- Trunk‑based: main protected (require PR, 1+ review, passing CI, linear history or squash).
+- Branches: feat/*, fix/*, chore/*, refactor/*, perf/*, docs/*.
+- Conventional Commits enforced via commitlint (Husky commit-msg). lint-staged runs eslint/prettier on staged files; run typecheck/tests on changed packages.
+- semantic-release on main for automatic versioning, tags, GitHub Releases, and CHANGELOG.md.
+- Repo hygiene: .editorconfig, .gitattributes, CODEOWNERS, LICENSE, SECURITY.md, CODE_OF_CONDUCT.md, PR template, issue templates, Dependabot, CodeQL.
+- CI (GitHub Actions): ci.yml (lint, typecheck, unit, build), zap.yml (OWASP ZAP baseline), codeql.yml, release.yml, optional deploy workflows (Vercel frontend; GHCR + Fly/Render backend).
+- Environments: staging, production; required reviewers and secrets.
+- Document GitHub Secrets (DATABASE_URL, REDIS_URL, S3_*/R2_*, LIVEKIT_*, AUTH_*, NEXTAUTH_SECRET, JWT_SECRET, SENTRY_DSN, VERCEL_*, FLY_API_TOKEN). Provide gh secret set examples in docs.
+
+Docs & ADRs
+- Keep README up to date (setup, env vars, run, test, deploy, troubleshooting).
+- Maintain OpenAPI under /docs/api or app/api/openapi.* and regenerate TS client as needed.
+- Use ADRs (docs/adrs) for significant decisions; include alternatives and trade‑offs.
+
+Acceptance for a change
+- Builds locally (pnpm build) and in CI.
+- Tests pass; coverage unchanged or improved on touched code.
+- Lint/typecheck clean; no console errors in dev.
+- Docs/Storybook/OpenAPI updated if interfaces/behavior changed.
+
+Never do
+- Do not copy Discord branding/assets.
+- Do not commit secrets or production URLs.
+- Do not bypass validation, permissions, or tenancy checks.
+- Do not exceed performance budgets or remove tests to “fix” CI.
+---

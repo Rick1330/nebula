@@ -1,0 +1,8 @@
+# Require reviews for sensitive paths
+/.github/workflows/*  @your-org/platform
+/app/api/**           @your-org/backend
+/server/**            @your-org/backend
+/components/**        @your-org/frontend
+/prisma/**            @your-org/backend
+/docs/**              @your-org/docs
+/*                    @your-org/maintainers
