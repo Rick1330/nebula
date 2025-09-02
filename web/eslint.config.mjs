@@ -18,6 +18,8 @@ const eslintConfig = [
 			"out/**",
 			"build/**",
 			"next-env.d.ts",
+			"app/generated/**",
+			"prisma/**",
 		],
 		rules: {
 			"@typescript-eslint/no-this-alias": "off",
