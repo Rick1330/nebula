@@ -25,9 +25,12 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: web/pnpm-lock.yaml
 
-      - name: Install dependencies
+      - name: Install root dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Install dependencies (web)
         working-directory: web
-        run: pnpm i --frozen-lockfile || pnpm i
+        run: pnpm install --frozen-lockfile || pnpm install
 
       - name: Semantic Release
         env:
