@@ -29,6 +29,10 @@ jobs:
         working-directory: web
         run: pnpm install --frozen-lockfile || pnpm install
 
+      - name: Generate Prisma Client
+        working-directory: web
+        run: pnpm prisma generate
+
       - name: Typecheck
         working-directory: web
         run: pnpm run -s typecheck
