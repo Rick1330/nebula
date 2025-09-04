@@ -2,12 +2,21 @@
 	"name": "nebula",
 	"version": "0.0.0",
 	"private": true,
+	"type": "module",
+	"scripts": {
+		"ws:dev": "tsx server/realtime.ts"
+	},
 	"devDependencies": {
 		"@semantic-release/changelog": "^6.0.3",
 		"@semantic-release/commit-analyzer": "^13.0.0",
-		"@semantic-release/github": "^10.3.5",
 		"@semantic-release/git": "^10.0.1",
+		"@semantic-release/github": "^10.3.5",
 		"@semantic-release/release-notes-generator": "^14.0.1",
-		"semantic-release": "^24.1.1"
+		"semantic-release": "^24.1.1",
+		"tsx": "^4.19.2"
+	},
+	"dependencies": {
+		"socket.io": "^4.8.1",
+		"socket.io-client": "^4.8.1"
 	}
 }
