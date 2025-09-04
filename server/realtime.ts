@@ -1,5 +1,6 @@
 import http from "http";
 import { Server } from "socket.io";
+import { validateEvent } from "./ws/schemas";
 
 type ServerToClientEvents = {
 	pong: () => void;
@@ -60,12 +61,17 @@ export function createRealtimeServer(port = Number(process.env.WS_PORT ?? 4001))
 			return false;
 		}
 
-		// Event middleware for rate limit + logging
+		// Event middleware: rate limit + validation + logging
 		socket.use((packet, next) => {
-			const [eventName] = packet as [string, ...unknown[]];
+			const [eventName, ...args] = packet as [string, ...unknown[]];
 			if (!allow(eventName)) {
 				console.warn(JSON.stringify({ level: "warn", msg: "ws_rate_limited", socketId: socket.id, event: eventName }));
 				return next(new Error("rate_limited"));
+			}
+			const v = validateEvent(eventName, args);
+			if (!v.ok) {
+				console.warn(JSON.stringify({ level: "warn", msg: "ws_invalid_event", socketId: socket.id, event: eventName, error: v.error }));
+				return next(new Error("invalid_event"));
 			}
 			console.log(JSON.stringify({ level: "info", msg: "ws_event", socketId: socket.id, event: eventName }));
 			return next();
