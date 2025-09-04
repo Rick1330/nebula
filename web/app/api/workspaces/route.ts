@@ -10,7 +10,19 @@ export async function POST(req: Request) {
 		const prisma = getPrismaClient();
 		const workspace = await prisma.workspace.create({ data: { name: parsed.data.name } });
 		return json({ workspace });
-	} catch (e: any) {
-		return error("Internal error", 500, { message: e?.message });
+	} catch (e: unknown) {
+		const msg = e instanceof Error ? e.message : String(e);
+		return error("Internal error", 500, { message: msg });
+	}
+}
+
+export async function GET() {
+	try {
+		const prisma = getPrismaClient();
+		const workspaces = await prisma.workspace.findMany({ orderBy: { createdAt: "asc" } });
+		return json({ workspaces });
+	} catch (e: unknown) {
+		const msg = e instanceof Error ? e.message : String(e);
+		return error("Internal error", 500, { message: msg });
 	}
 }

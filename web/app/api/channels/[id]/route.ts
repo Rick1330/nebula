@@ -7,8 +7,9 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
 	try {
 		const deleted = await prisma.channel.delete({ where: { id: params.id } });
 		return json({ channel: deleted });
-	} catch (e: any) {
-		return error("Failed to delete channel", 500, { message: e?.message });
+	} catch (e: unknown) {
+		const msg = e instanceof Error ? e.message : String(e);
+		return error("Failed to delete channel", 500, { message: msg });
 	}
 }
 
@@ -22,9 +23,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 		if (!existing) return error("channel not found", 404);
 		const updated = await prisma.channel.update({ where: { id: params.id }, data: { name: parsed.data.name } });
 		return json({ channel: updated });
-	} catch (e: any) {
-		const msg = e?.message as string;
-		if (msg && msg.includes("Unique constraint failed")) {
+	} catch (e: unknown) {
+		const msg = e instanceof Error ? e.message : String(e);
+		if (msg.includes("Unique constraint failed")) {
 			return error("name already exists in this workspace", 409);
 		}
 		return error("Failed to update channel", 500, { message: msg });

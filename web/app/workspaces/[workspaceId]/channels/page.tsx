@@ -33,8 +33,8 @@ async function renameChannel(id: string, name: string) {
 	return (await res.json()).channel as { id: string; name: string; type: string };
 }
 
-export default function ChannelsPage({ params }: { params: Promise<{ workspaceId: string }> }) {
-	const { workspaceId } = React.use(params);
+export default function ChannelsPage({ params }: { params: { workspaceId: string } }) {
+	const { workspaceId } = params;
 	const [channels, setChannels] = React.useState<Array<{ id: string; name: string; type: string }>>([]);
 	const [name, setName] = React.useState("");
 	const [type, setType] = React.useState<"TEXT" | "VOICE">("TEXT");
@@ -117,7 +117,7 @@ export default function ChannelsPage({ params }: { params: Promise<{ workspaceId
 				</div>
 				<div>
 					<label className="block text-sm font-medium">Type</label>
-					<select value={type} onChange={(e) => setType(e.target.value as any)} className="border rounded px-3 py-2">
+					<select value={type} onChange={(e) => setType(e.target.value as "TEXT" | "VOICE")} className="border rounded px-3 py-2">
 						<option value="TEXT">TEXT</option>
 						<option value="VOICE">VOICE</option>
 					</select>
