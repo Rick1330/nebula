@@ -4,7 +4,8 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"ws:dev": "tsx server/realtime.ts"
+		"ws:dev": "tsx server/realtime.ts",
+		"ws:ping": "node -e \"import('socket.io-client').then(({io})=>{const s=io('ws://localhost:4001');s.on('connect',()=>{console.log('connected');s.emit('ping')});s.on('pong',()=>{console.log('pong');process.exit(0)})})\""
 	},
 	"devDependencies": {
 		"@semantic-release/changelog": "^6.0.3",
@@ -16,6 +17,8 @@
 		"tsx": "^4.19.2"
 	},
 	"dependencies": {
+		"@socket.io/redis-adapter": "^8.3.0",
+		"ioredis": "^5.7.0",
 		"socket.io": "^4.8.1",
 		"socket.io-client": "^4.8.1"
 	}
