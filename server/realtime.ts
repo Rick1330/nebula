@@ -1,6 +1,7 @@
 import http from "http";
 import { Server } from "socket.io";
 import { validateEvent } from "./ws/schemas";
+import { PresenceService } from "./presence";
 
 type ServerToClientEvents = {
 	pong: () => void;
@@ -11,13 +12,35 @@ type ClientToServerEvents = {
 };
 
 export function createRealtimeServer(port = Number(process.env.WS_PORT ?? 4001)) {
-	const httpServer = http.createServer();
+	const redisUrl = process.env.REDIS_URL;
+	let presence: PresenceService = new PresenceService();
+
+	// Create HTTP server with async presence snapshot handling
+	const httpServer = http.createServer((req, res) => {
+		if (req.method === "GET" && req.url === "/presence") {
+			void (async () => {
+				try {
+					const body = JSON.stringify(await presence.snapshot());
+					res.statusCode = 200;
+					res.setHeader("content-type", "application/json");
+					res.end(body);
+				} catch (err) {
+					res.statusCode = 500;
+					res.setHeader("content-type", "application/json");
+					res.end(JSON.stringify({ error: (err as Error).message }));
+				}
+			})();
+			return;
+		}
+		res.statusCode = 200;
+		res.setHeader("content-type", "text/plain");
+		res.end("ok\n");
+	});
 	const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 		cors: { origin: "*" },
 	});
 
-	// Optional Redis adapter for scale-out
-	const redisUrl = process.env.REDIS_URL;
+	// Optional Redis adapter for scale-out and presence
 	if (redisUrl) {
 		(async () => {
 			try {
@@ -25,16 +48,20 @@ export function createRealtimeServer(port = Number(process.env.WS_PORT ?? 4001))
 				const Redis = (await import("ioredis")).default;
 				const pub = new Redis(redisUrl);
 				const sub = new Redis(redisUrl);
+				const presenceClient = new Redis(redisUrl);
+				presence = new PresenceService({ redis: presenceClient });
 				io.adapter(createAdapter(pub, sub));
 				console.log(`[realtime] redis adapter enabled (${redisUrl})`);
 			} catch (err) {
 				console.warn(`[realtime] redis adapter unavailable: ${(err as Error).message}`);
+				presence = new PresenceService();
 			}
 		})();
 	}
 
 	// Connection-level logging
 	io.on("connection", (socket) => {
+		void presence.onConnect(socket.id);
 		console.log(JSON.stringify({ level: "info", msg: "ws_connect", socketId: socket.id }));
 
 		// Per-socket per-event token bucket
@@ -77,8 +104,14 @@ export function createRealtimeServer(port = Number(process.env.WS_PORT ?? 4001))
 			return next();
 		});
 
-		socket.on("ping", () => socket.emit("pong"));
-		socket.on("disconnect", (reason) => console.log(JSON.stringify({ level: "info", msg: "ws_disconnect", socketId: socket.id, reason })));
+		socket.on("ping", () => {
+			void presence.heartbeat(socket.id);
+			socket.emit("pong");
+		});
+		socket.on("disconnect", (reason) => {
+			void presence.onDisconnect(socket.id);
+			console.log(JSON.stringify({ level: "info", msg: "ws_disconnect", socketId: socket.id, reason }));
+		});
 	});
 
 	httpServer.listen(port, () => {
