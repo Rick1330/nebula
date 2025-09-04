@@ -63,6 +63,7 @@ model Channel {
 	messages  Message[]
 
 	@@index([workspaceId])
+	@@unique([workspaceId, name])
 }
 
 model Message {
