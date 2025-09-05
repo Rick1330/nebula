@@ -1,40 +1,43 @@
 "use client";
 
 import * as React from "react";
+import { fetchJson } from "@/lib/http";
 
 async function fetchChannels(workspaceId: string) {
-	const res = await fetch(`/api/channels?workspaceId=${encodeURIComponent(workspaceId)}`, { cache: "no-store" });
-	if (!res.ok) throw new Error(`Failed to fetch channels (${res.status})`);
-	return (await res.json()).channels as Array<{ id: string; name: string; type: string }>;
+	const data = await fetchJson<{ channels: Array<{ id: string; name: string; type: string }> }>(
+		`/api/channels?workspaceId=${encodeURIComponent(workspaceId)}`,
+		{ cache: "no-store" }
+	);
+	return data.channels;
 }
 
 async function createChannel(input: { workspaceId: string; name: string; type: "TEXT" | "VOICE" }) {
-	const res = await fetch(`/api/channels`, {
+	const data = await fetchJson<{ channel: { id: string; name: string; type: string } }>(`/api/channels`, {
 		method: "POST",
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify(input),
 	});
-	if (!res.ok) throw new Error(`Failed to create channel (${res.status})`);
-	return (await res.json()).channel as { id: string; name: string; type: string };
+	return data.channel;
 }
 
 async function deleteChannel(id: string) {
-	const res = await fetch(`/api/channels/${encodeURIComponent(id)}`, { method: "DELETE" });
-	if (!res.ok) throw new Error(`Failed to delete channel (${res.status})`);
+	await fetchJson<unknown>(`/api/channels/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 async function renameChannel(id: string, name: string) {
-	const res = await fetch(`/api/channels/${encodeURIComponent(id)}`, {
-		method: "PATCH",
-		headers: { "content-type": "application/json" },
-		body: JSON.stringify({ name }),
-	});
-	if (!res.ok) throw new Error(`Failed to rename channel (${res.status})`);
-	return (await res.json()).channel as { id: string; name: string; type: string };
+	const data = await fetchJson<{ channel: { id: string; name: string; type: string } }>(
+		`/api/channels/${encodeURIComponent(id)}`,
+		{
+			method: "PATCH",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ name }),
+		}
+	);
+	return data.channel;
 }
 
-export default function ChannelsPage({ params }: { params: { workspaceId: string } }) {
-	const { workspaceId } = params;
+export default function ChannelsPage({ params }: { params: Promise<{ workspaceId: string }> }) {
+	const { workspaceId } = React.use(params);
 	const [channels, setChannels] = React.useState<Array<{ id: string; name: string; type: string }>>([]);
 	const [name, setName] = React.useState("");
 	const [type, setType] = React.useState<"TEXT" | "VOICE">("TEXT");
@@ -107,6 +110,34 @@ export default function ChannelsPage({ params }: { params: { workspaceId: string
 		}
 	}
 
+	function ChannelItem({ c }: { c: { id: string; name: string; type: string } }) {
+		const isRenaming = renamingId === c.id;
+		return (
+			<li className="py-2 flex items-center justify-between gap-4">
+				<div className="flex-1">
+					{isRenaming ? (
+						<form onSubmit={submitRename} className="flex gap-2">
+							<input className="border rounded px-2 py-1 flex-1" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} minLength={2} maxLength={64} />
+							<button type="submit" className="text-sm">Save</button>
+							<button type="button" onClick={() => setRenamingId(null)} className="text-sm text-gray-600">Cancel</button>
+						</form>
+					) : (
+						<>
+							<p className="font-medium">{c.name}</p>
+							<p className="text-xs text-gray-500">{c.type}</p>
+						</>
+					)}
+				</div>
+				<div className="flex items-center gap-3">
+					{!isRenaming ? (
+						<button onClick={() => startRename(c)} className="text-sm">Rename</button>
+					) : null}
+					<button onClick={() => onDelete(c.id)} className="text-red-600 text-sm">Delete</button>
+				</div>
+			</li>
+		);
+	}
+
 	return (
 		<div className="max-w-2xl mx-auto p-6 space-y-6">
 			<h1 className="text-2xl font-semibold">Channels</h1>
@@ -128,28 +159,7 @@ export default function ChannelsPage({ params }: { params: { workspaceId: string
 			{error ? <p className="text-red-600 text-sm">{error}</p> : null}
 			<ul className="divide-y">
 				{channels.map((c) => (
-					<li key={c.id} className="py-2 flex items-center justify-between gap-4">
-						<div className="flex-1">
-							{renamingId === c.id ? (
-								<form onSubmit={submitRename} className="flex gap-2">
-									<input className="border rounded px-2 py-1 flex-1" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} minLength={2} maxLength={64} />
-									<button type="submit" className="text-sm">Save</button>
-									<button type="button" onClick={() => setRenamingId(null)} className="text-sm text-gray-600">Cancel</button>
-								</form>
-							) : (
-								<>
-									<p className="font-medium">{c.name}</p>
-									<p className="text-xs text-gray-500">{c.type}</p>
-								</>
-							)}
-						</div>
-						<div className="flex items-center gap-3">
-							{renamingId !== c.id ? (
-								<button onClick={() => startRename(c)} className="text-sm">Rename</button>
-							) : null}
-							<button onClick={() => onDelete(c.id)} className="text-red-600 text-sm">Delete</button>
-						</div>
-					</li>
+					<ChannelItem key={c.id} c={c} />
 				))}
 			</ul>
 		</div>
