@@ -15,6 +15,16 @@ services:
     ports:
       - "6379:6379"
 
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --dev --bind 0.0.0.0 --port 7880 --udp-port 7882
+    ports:
+      - "7880:7880"
+      - "7882:7882/udp"
+    environment:
+      LIVEKIT_KEYS: "devkey: secret"
+    restart: unless-stopped
+
   minio:
     image: minio/minio:RELEASE.2024-06-13T22-53-53Z
     command: server /data --console-address ":9001"
@@ -40,12 +50,16 @@ services:
       S3_SECRET_ACCESS_KEY: minio12345
       S3_BUCKET: nebula
       NEXT_TELEMETRY_DISABLED: "1"
+      LIVEKIT_URL: ws://localhost:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
     ports:
       - "3000:3000"
     depends_on:
       - db
       - redis
       - minio
+      - livekit
     command: ["pnpm","dev"]
     working_dir: /app
     volumes:
