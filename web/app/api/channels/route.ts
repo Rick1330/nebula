@@ -1,8 +1,11 @@
 import { getPrismaClient } from "@/app/lib/prisma";
 import { json, error } from "@/lib/api";
 import { createChannelSchema } from "@/lib/schemas";
+import { getServerSession } from "next-auth";
 
 export async function POST(req: Request) {
+	const session = await getServerSession();
+	if (!session) return error("Unauthorized", 401);
 	const body = await req.json().catch(() => null);
 	const parsed = createChannelSchema.safeParse(body);
 	if (!parsed.success) return error("Invalid payload", 400, { issues: parsed.error.flatten() });
@@ -18,8 +21,9 @@ export async function POST(req: Request) {
 			},
 		});
 		return json({ channel });
-	} catch (e) {
-		return error("Failed to create channel", 500, { message: (e as Error).message });
+	} catch (e: unknown) {
+		const msg = e instanceof Error ? e.message : String(e);
+		return error("Failed to create channel", 500, { message: msg });
 	}
 }
 
@@ -34,8 +38,9 @@ export async function GET(req: Request) {
 			orderBy: { createdAt: "asc" },
 		});
 		return json({ channels });
-	} catch (e) {
-		return error("Failed to list channels", 500, { message: (e as Error).message });
+	} catch (e: unknown) {
+		const msg = e instanceof Error ? e.message : String(e);
+		return error("Failed to list channels", 500, { message: msg });
 	}
 }
 
