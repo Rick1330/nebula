@@ -1,12 +1,13 @@
 # Node
 node_modules/
 .pnpm-store/
-.pnp.* 
+.pnp.*
 dist/
 .next/
 out/
 coverage/
 .vscode/
+.qoder/
 .DS_Store
 *.log
 .env
